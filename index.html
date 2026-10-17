@@ -55,7 +55,7 @@
 </head>
 <body>
 
-    <h1>PHOTO SHOOTER</h1>
+    <h1>IGNAZ SHOTER</h1>
     <div class="info-box" id="papanSkor">🏆 REKOR TERBAIKMU: 0 Poin</div>
     
     <canvas id="gameCanvas" width="400" height="520"></canvas>
@@ -129,7 +129,7 @@
         function spawnMusuh() {
             if (!gameAktif) return;
             let xAcak = Math.random() * (canvas.width - 35);
-            daftarMusuh.push({ x: xAcak, y: -40, ukuran: 35, kecepatan: 0.5 + (skor * 0.08) });
+            daftarMusuh.push({ x: xAcak, y: -40, ukuran: 35, kecepatan: 0.8 + (skor * 0.08) });
             setTimeout(spawnMusuh, 4000 - (skor * 10 > 500 ? 500 : skor * 10));
         }
 
@@ -200,7 +200,7 @@
 
         function gameOver() {
             gameAktif = false;
-            alert(`GAME OVER! Skor akhir Anda: ${skor}`);
+            alert(`KAMU GAGAL! Skor akhir Mu Nah: ${skor}`);
             
             if (skor > skorTertinggi) {
                 localStorage.setItem("highScoreAdu", skor);
@@ -212,7 +212,7 @@
             daftarPeluru = [];
             pemainX = 180;
             skorTertinggi = localStorage.getItem("highScoreAdu") || 0;
-            document.getElementById("papanSkor").innerText = `🏆 REKOR TERBAIKMU: ${skorTertinggi} Poin`;
+            document.getElementById("papanSkor").innerText = `🏆 REKOR TERANJAY: ${skorTertinggi} Poin`;
             gameAktif = true;
             update();
         }
