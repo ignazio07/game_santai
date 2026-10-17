@@ -69,6 +69,55 @@
     <script>
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
+       
+        const daftarMusik = [
+    "music latar/music1.mp3",
+    "music latar/music2.mp3",
+    "music latar/music3.mp3",
+    "music latar/music4.mp3",
+    "music latar/music5.mp3",
+    "music latar/music6.mp3",
+    "music latar/music7.mp3",
+    "music latar/music8.mp3",
+    "music latar/music9.mp3"
+];
+
+const musikLatar = new Audio();
+musikLatar.loop = true;
+musikLatar.volume = 1.0; 
+
+let musikTerakhir = "";
+let musikSudahDiizinkan = false;
+
+function pilihMusikBerbeda() {
+    const pilihan = daftarMusik.filter(namaFile => namaFile !== musikTerakhir);
+
+    if (pilihan.length === 0) {
+        console.warn("music latar/music1.mp3, music latar/music2.mp3, music latar/music3.mp3, music latar/music4.mp3, music latar/music5.mp3, music latar/music6.mp3, music latar/music7.mp3, music latar/music8.mp3, music latar/music9.mp3");
+        return;
+    }
+
+    const namaFile = pilihan[Math.floor(Math.random() * pilihan.length)];
+    musikTerakhir = namaFile;
+    musikLatar.src = namaFile;
+
+    musikLatar.play().catch(error => {
+        console.warn("Musik tidak dapat diputar:", error);
+    });
+}
+
+function mulaiMusik() {
+    if (musikSudahDiizinkan) return;
+
+    musikSudahDiizinkan = true;
+    pilihMusikBerbeda();
+
+    window.removeEventListener("pointerdown", mulaiMusik);
+    window.removeEventListener("keydown", mulaiMusik);
+}
+
+window.addEventListener("pointerdown", mulaiMusik);
+window.addEventListener("keydown", mulaiMusik);
 
         const imgPemain = new Image(); imgPemain.src = "pemain.png";
         const imgMusuh = new Image(); imgMusuh.src = "musuh.png";
@@ -200,6 +249,7 @@
 
         function gameOver() {
             gameAktif = false;
+            if (musikSudahDiizinkan) pilihMusikBerbeda();
             alert(`KAMU GAGAL! Skor akhir Mu Nah: ${skor}`);
             
             if (skor > skorTertinggi) {
@@ -214,7 +264,6 @@
             skorTertinggi = localStorage.getItem("highScoreAdu") || 0;
             document.getElementById("papanSkor").innerText = `🏆 REKOR TERANJAY: ${skorTertinggi} Poin`;
             gameAktif = true;
-            update();
         }
     </script>
 </body>
