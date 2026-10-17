@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game_Tembak_Ignaz</title>
+    <style>
+        body {
+            background: radial-gradient(circle, #1a1a2e 0%, #0f0c20 100%);
+            color: #fff;
+            font-family: 'Segoe UI', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+            overflow-x: hidden;
+        }
+        h1 {
+            margin: 5px 0;
+            color: #00f2fe;
+            text-shadow: 0 0 10px #00f2fe, 0 0 20px #4facfe;
+            font-size: 2rem;
+            letter-spacing: 2px;
+        }
+        .info-box {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 8px 20px;
+            border-radius: 20px;
+            border: 1px solid rgba(0, 242, 254, 0.3);
+            margin-bottom: 15px;
+            font-size: 16px;
+            box-shadow: 0 0 15px rgba(0, 242, 254, 0.1);
+        }
+        canvas {
+            border: 3px solid #00f2fe;
+            border-radius: 8px;
+            background-color: #020208;
+            box-shadow: 0 0 25px rgba(0, 242, 254, 0.4);
+            image-rendering: pixelated; 
+            image-rendering: crisp-edges;
+            max-width: 100%;
+        }
+        .kontrol-hp { display: flex; gap: 15px; margin-top: 15px; }
+        button {
+            padding: 12px 24px; font-size: 16px; font-weight: bold;
+            background: linear-gradient(45deg, #4facfe 0%, #00f2fe 100%);
+            color: #000; border: none; border-radius: 5px;
+            cursor: pointer; box-shadow: 0 4px 15px rgba(0, 242, 254, 0.3);
+            user-select: none; transition: transform 0.1s;
+        }
+        button:active { transform: scale(0.95); background: #00f2fe; }
+        #btnTembak { background: linear-gradient(45deg, #ff0844 0%, #ffb199 100%); color: #fff; box-shadow: 0 4px 15px rgba(255, 8, 68, 0.3); }
+    </style>
+</head>
+<body>
+
+    <h1>PHOTO SHOOTER</h1>
+    <div class="info-box" id="papanSkor">🏆 REKOR TERBAIKMU: 0 Poin</div>
+    
+    <canvas id="gameCanvas" width="400" height="520"></canvas>
+
+    <div class="kontrol-hp">
+        <button id="btnKiri">◀ KIRI</button>
+        <button id="btnTembak">TEMBAK 🔥</button>
+        <button id="btnKanan">KANAN ▶</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        const imgPemain = new Image(); imgPemain.src = "pemain.png";
+        const imgMusuh = new Image(); imgMusuh.src = "musuh.png";
+
+        let gambarPemainSiap = false;
+        let gambarMusuhSiap = false;
+
+        function cekDanMulaiGame() {
+            if (gambarPemainSiap && gambarMusuhSiap) {
+                spawnMusuh();
+                update();
+            }
+        }
+
+        imgPemain.onload = function() { gambarPemainSiap = true; cekDanMulaiGame(); };
+        imgMusuh.onload = function() { gambarMusuhSiap = true; cekDanMulaiGame(); };
+
+        let pemainX = 180;
+        const pemainY = 450;
+        const ukuranPemain = 40;
+        const kecepatanPemain = 7;
+
+        let daftarPeluru = [];
+        let daftarMusuh = [];
+        let efekLedakan = [];
+        let bintangLatar = [];
+        let skor = 0;
+        
+        let skorTertinggi = localStorage.getItem("highScoreAdu") || 0;
+        let gameAktif = true;
+        let tombol = {};
+
+        document.getElementById("papanSkor").innerText = `🏆 REKOR TERBAIKMU: ${skorTertinggi} Poin`;
+
+        for(let i=0; i<30; i++) {
+            bintangLatar.push({ x: Math.random()*canvas.width, y: Math.random()*canvas.height, speed: 1 + Math.random()*2 });
+        }
+
+        window.addEventListener("keydown", (e) => tombol[e.key] = true);
+        window.addEventListener("keyup", (e) => tombol[e.key] = false);
+        window.addEventListener("keydown", (e) => { if (e.key === " " || e.key === "ArrowUp") tembak(); });
+
+        function pasangTombol(id, aksi) {
+            const btn = document.getElementById(id);
+            btn.addEventListener("touchstart", (e) => { e.preventDefault(); aksi(); });
+            btn.addEventListener("mousedown", () => aksi());
+        }
+        pasangTombol("btnKiri", () => { if(pemainX > 0) pemainX -= 25; });
+        pasangTombol("btnKanan", () => { if(pemainX < canvas.width - ukuranPemain) pemainX += 25; });
+        pasangTombol("btnTembak", () => tembak());
+
+        function tembak() {
+            if (!gameAktif) return;
+
+            daftarPeluru.push({ x: pemainX + 18, y: pemainY, lebar: 4, tinggi: 12, kecepatan: 9 });
+        }
+
+        function spawnMusuh() {
+            if (!gameAktif) return;
+            let xAcak = Math.random() * (canvas.width - 35);
+            daftarMusuh.push({ x: xAcak, y: -40, ukuran: 35, kecepatan: 0.5 + (skor * 0.08) });
+            setTimeout(spawnMusuh, 4000 - (skor * 10 > 500 ? 500 : skor * 10));
+        }
+
+        function buatLedakan(x, y) {
+            for(let i=0; i<15; i++) {
+                efekLedakan.push({
+                    x: x, y: y,
+                    vx: (Math.random() - 0.5) * 6,
+                    vy: (Math.random() - 0.5) * 6,
+                    alpha: 1,
+                    warna: `hsl(${Math.random() * 360}, 100%, 60%)`
+                });
+            }
+        }
+
+        function update() {
+            if (!gameAktif) return;
+
+            if ((tombol["ArrowLeft"] || tombol["a"]) && pemainX > 0) pemainX -= kecepatanPemain;
+            if ((tombol["ArrowRight"] || tombol["d"]) && pemainX < canvas.width - ukuranPemain) pemainX += kecepatanPemain;
+
+            bintangLatar.forEach(b => { b.y += b.speed; if(b.y > canvas.height) b.y = 0; });
+            daftarPeluru.forEach((p, idx) => { p.y -= p.kecepatan; if(p.y < 0) daftarPeluru.splice(idx, 1); });
+
+            efekLedakan.forEach((partikel, idx) => {
+                partikel.x += partikel.vx; partikel.y += partikel.vy; partikel.alpha -= 0.04;
+                if(partikel.alpha <= 0) efekLedakan.splice(idx, 1);
+            });
+
+            daftarMusuh.forEach((m, mIdx) => {
+                m.y += m.kecepatan;
+                if (m.y > canvas.height) gameOver();
+
+                daftarPeluru.forEach((p, pIdx) => {
+                    if (p.x < m.x + m.ukuran && p.x + p.lebar > m.x && 
+                        p.y < m.y + m.ukuran && p.y + p.tinggi > m.y) {
+                        buatLedakan(m.x + m.ukuran/2, m.y + m.ukuran/2);
+                        daftarMusuh.splice(mIdx, 1);
+                        daftarPeluru.splice(pIdx, 1);
+                        skor++;
+                    }
+                });
+            });
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = "rgba(255,255,255,0.6)";
+            bintangLatar.forEach(b => ctx.fillRect(b.x, b.y, 2, 2));
+
+            ctx.drawImage(imgPemain, pemainX, pemainY, ukuranPemain, ukuranPemain);
+
+            ctx.fillStyle = "#00f2fe";
+            daftarPeluru.forEach(p => ctx.fillRect(p.x, p.y, p.lebar, p.tinggi));
+
+            daftarMusuh.forEach(m => ctx.drawImage(imgMusuh, m.x, m.y, m.ukuran, m.ukuran));
+
+            efekLedakan.forEach(p => {
+                ctx.fillStyle = p.warna; ctx.globalAlpha = p.alpha;
+                ctx.fillRect(p.x, p.y, 3, 3);
+            });
+            ctx.globalAlpha = 1.0;
+
+            ctx.fillStyle = "#fff"; ctx.font = "bold 16px sans-serif";
+            ctx.fillText(`SKOR: ${skor}`, 15, 30);
+
+            requestAnimationFrame(update);
+        }
+
+        function gameOver() {
+            gameAktif = false;
+            alert(`GAME OVER! Skor akhir Anda: ${skor}`);
+            
+            if (skor > skorTertinggi) {
+                localStorage.setItem("highScoreAdu", skor);
+                alert("🎉 LUAR BIASA! Rekor baru Anjay!");
+            }
+
+            skor = 0;
+            daftarMusuh = [];
+            daftarPeluru = [];
+            pemainX = 180;
+            skorTertinggi = localStorage.getItem("highScoreAdu") || 0;
+            document.getElementById("papanSkor").innerText = `🏆 REKOR TERBAIKMU: ${skorTertinggi} Poin`;
+            gameAktif = true;
+            update();
+        }
+    </script>
+</body>
+</html>
