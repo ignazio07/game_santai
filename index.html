@@ -41,7 +41,6 @@
             image-rendering: crisp-edges;
             max-width: 100%;
         }
-        .kontrol-hp { display: flex; gap: 15px; margin-top: 15px; }
         button {
             padding: 12px 24px; font-size: 16px; font-weight: bold;
             background: linear-gradient(45deg, #4facfe 0%, #00f2fe 100%);
@@ -61,13 +60,67 @@
   box-sizing: border-box;
 }
 
-.move-controls {
+.move-control {
+  width: 152px;
+  height: 152px;
   display: flex;
-  gap: 10px;
+  justify-content: center;
+  align-items: center;
+  border: 2px solid rgba(0, 242, 254, 0.45);
+  border-radius: 50%;
+  background: rgba(0, 242, 254, 0.08);
+  touch-action: none;
+}
+
+#control-gerak {
+  width: 116px;
+  height: 116px;
+  padding: 0;
+  border: 2px solid #b8fbff;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #4facfe, #00f2fe);
+  color: #06202b;
+  font-size: 28px;
+  line-height: 1;
+  box-shadow: 0 0 14px rgba(0, 242, 254, 0.5);
+  touch-action: none;
+  transform: translateX(var(--drag-offset, 0px));
+  transition: transform 0.08s;
+}
+
+.move-control.is-dragging {
+  background: rgba(0, 242, 254, 0.2);
+}
+
+#control-gerak:active {
+  transform: translateX(var(--drag-offset, 0px)) scale(0.95);
+}
+
+.control-hint {
+  margin: 4px 12px 12px;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 14px;
+  text-align: center;
 }
 
 #btn-tembak {
   min-width: 120px; 
+}
+
+@media (max-width: 380px) {
+  body {
+    padding: 12px 8px;
+  }
+
+  #btn-tembak {
+    min-width: 80px;
+    padding: 12px 8px;
+    font-size: 14px;
+  }
+}
+
+#gameCanvas {
+  touch-action: auto;
 }
 
 #start-screen {
@@ -76,7 +129,7 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: #0a0a19;
+  background: linear-gradient(180deg, rgba(10,10,25,0.92), rgba(14,17,35,0.96));
   display: flex;
   justify-content: center;
   align-items: center;
@@ -84,20 +137,61 @@
   text-align: center;
 }
 
+.menu-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 18px;
+}
+
 .game-title {
   color: #00f0ff;
   text-shadow: 0 0 10px #00f0ff;
-  margin-bottom: 25px;
+  margin-bottom: 8px;
 }
 
-#btn-mulai {
+.instruksi {
+  margin: 0;
+  color: rgba(255,255,255,0.8);
+  font-size: 14px;
+  letter-spacing: 0.5px;
+}
+
+#game-over-panel {
+  display: none;
+  background: rgba(10, 10, 20, 0.8);
+  border: 2px solid rgba(0, 242, 254, 0.5);
+  border-radius: 18px;
+  padding: 18px 22px;
+  box-shadow: 0 0 20px rgba(0, 242, 254, 0.2);
+  margin-top: 10px;
+}
+
+#game-over-panel.show {
+  display: block;
+}
+
+#game-over-title {
+  margin: 0 0 8px;
+  color: #ff6b6b;
+  font-size: 1.8rem;
+}
+
+#game-over-score {
+  margin: 0 0 14px;
+  color: #fff;
+  font-weight: 600;
+}
+
+#btn-mulai, #btn-ulang {
   width: 200px;
   max-width: 70%;
   cursor: pointer;
   transition: transform 0.2s ease;
 }
 
-#btn-mulai:hover {
+#btn-mulai:hover, #btn-ulang:hover {
   transform: scale(1.1);
 }
 
@@ -119,8 +213,13 @@
   <div id="start-screen">
     <div class="menu-content">
       <h1 class="game-title">IGNAZ SHOTER</h1>
+      <div id="game-over-panel">
+        <h2 id="game-over-title">GAME OVER</h2>
+        <p id="game-over-score">Skor: 0</p>
+        <button id="btn-ulang" type="button">MAIN LAGI</button>
+      </div>
       <img src="logo_mulai.png" id="btn-mulai" alt="Mulai Game">
-      <p class="instruksi">Klik logo untuk bermain</p>
+      <p class="instruksi">Sentuh logo untuk bermain</p>
     </div>
   </div>
 
@@ -129,188 +228,373 @@
 </div>
 
 <div class="controls-container">
-
-  <div class="move-controls">
-    <button id="btn-kiri">◀ KIRI</button>
-    <button id="btn-kanan">KANAN ▶</button>
+  <div class="move-control">
+    <button id="control-gerak" type="button" aria-label="Geser pesawat">↔</button>
   </div>
-  
   <button id="btn-tembak">TEMBAK 🔥</button>
 </div>
+<p class="control-hint">Geser ikon bulat untuk menggerakkan pesawat. Tekan TEMBAK untuk menembak.</p>
 
     <script>
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
         const startScreen = document.getElementById("start-screen");
         const btnMulai = document.getElementById("btn-mulai");
-       
+        const btnUlang = document.getElementById("btn-ulang");
+        const gameOverPanel = document.getElementById("game-over-panel");
+        const gameOverScore = document.getElementById("game-over-score");
+        const scoreDisplay = document.getElementById("skor-display");
+        const bestScoreDisplay = document.getElementById("papanSkor");
+        const kontrolGerak = document.getElementById("control-gerak");
+        const areaKontrolGerak = document.querySelector(".move-control");
+
         const daftarMusik = [
-    "music1.mp3",
-    "music2.mp3",
-    "music3.mp3",
-    "music4.mp3",
-    "music5.mp3",
-    "music6.mp3",
-    "music7.mp3",
-    "music8.mp3",
-    "music9.mp3"
-];
+            "music1.mp3", "music2.mp3", "music3.mp3", "music4.mp3",
+            "music5.mp3", "music6.mp3", "music7.mp3", "music8.mp3", "music9.mp3"
+        ];
 
-const musikLatar = new Audio();
-musikLatar.loop = true;
-musikLatar.volume = 1.0; 
+        const musikLatar = new Audio();
+        musikLatar.loop = true;
+        musikLatar.volume = 1.0;
 
-let musikTerakhir = "";
-let musikSudahDiizinkan = false;
+        let musikTerakhir = "";
+        let musikSudahDiizinkan = false;
 
-function pilihMusikBerbeda() {
-    const pilihan = daftarMusik.filter(namaFile => namaFile !== musikTerakhir);
+        function pilihMusikBerbeda() {
+            const pilihan = daftarMusik.filter(namaFile => namaFile !== musikTerakhir);
+            if (!pilihan.length) {
+                return;
+            }
 
-    if (pilihan.length === 0) {
-        console.warn("music1.mp3, music2.mp3, music3.mp3, music4.mp3, music5.mp3, music6.mp3, music7.mp3, music8.mp3, music9.mp3");
-        return;
-    }
+            const namaFile = pilihan[Math.floor(Math.random() * pilihan.length)];
+            musikTerakhir = namaFile;
+            musikLatar.src = namaFile;
+            musikLatar.play().catch(() => {});
+        }
 
-    const namaFile = pilihan[Math.floor(Math.random() * pilihan.length)];
-    musikTerakhir = namaFile;
-    musikLatar.src = namaFile;
+        function mulaiMusik() {
+            if (musikSudahDiizinkan) return;
+            musikSudahDiizinkan = true;
+            pilihMusikBerbeda();
+            window.removeEventListener("pointerdown", mulaiMusik);
+            window.removeEventListener("keydown", mulaiMusik);
+        }
 
-    musikLatar.play().catch(error => {
-        console.warn("Musik tidak dapat diputar:", error);
-    });
-}
+        window.addEventListener("pointerdown", mulaiMusik);
+        window.addEventListener("keydown", mulaiMusik);
 
-function mulaiMusik() {
-    if (musikSudahDiizinkan) return;
-
-    musikSudahDiizinkan = true;
-    pilihMusikBerbeda();
-
-    window.removeEventListener("pointerdown", mulaiMusik);
-    window.removeEventListener("keydown", mulaiMusik);
-}
-
-window.addEventListener("pointerdown", mulaiMusik);
-window.addEventListener("keydown", mulaiMusik);
-
-        const imgPemain = new Image(); imgPemain.src = "pemain.png";
-        const imgMusuh = new Image(); imgMusuh.src = "musuh.png";
-        const imgMusuhDanger = new Image(); imgMusuhDanger.src = "musuh_danger.png";
-        const gambarLedakan = new Image(); gambarLedakan.src = "foto-ledakan.png";
-
+        const imgPemain = new Image();
+        imgPemain.src = "pemain.png";
+        const imgMusuh = new Image();
+        imgMusuh.src = "musuh.png";
+        const imgMusuhDanger = new Image();
+        imgMusuhDanger.src = "musuh_danger.png";
+        const imgBoom = new Image();
+        imgBoom.src = "boom.png";
         let gambarPemainSiap = false;
         let gambarMusuhSiap = false;
-        imgPemain.onload = function() { gambarPemainSiap = true; };
-        imgMusuh.onload = function() { gambarMusuhSiap = true; };
+        imgPemain.onload = () => { gambarPemainSiap = true; };
+        imgMusuh.onload = () => { gambarMusuhSiap = true; };
 
         const ukuranPemain = 44;
-        let pemainX = canvas.width / 2 - ukuranPemain / 2;
         const pemainY = 450;
         const kecepatanPemain = 7;
+        const radiusLedakanBoom = 170;
+        const MAKS_PELURU_AKTIF = 8;
+        const MAKS_MUSUH_AKTIF = 16;
+        const MAKS_PARTIKEL_AKTIF = 300;
+        const JEDA_TEMBAKAN_MS = 350;
+        const KECEPATAN_MUSUH_MAKS = 5;
+        const KECEPATAN_BOOM_MAKS = 5.5;
+        const KECEPATAN_DANGER_MAKS = 6;
 
         let daftarPeluru = [];
         let daftarMusuh = [];
         let efekLedakan = [];
-        let daftarLedakan = [];
+        let efekRadiusLedakan = [];
         let bintangLatar = [];
+
         let skor = 0;
+        let nyawa = 3;
         let dangerModeAktif = false;
-        let targetDangerBerikutnya = 20;
-        
-        let skorTertinggi = Number(localStorage.getItem("highScoreAdu")) || 0;
+        let dangerTarget = 20;
+        let skorTertinggi = 0;
         let gameAktif = false;
+        let lastTimestamp = 0;
+        let spawnCountdown = 0;
+        let invulnerableTime = 0;
+        let waktuTembakanTerakhir = 0;
+        let pointerGerakAktif = null;
+        let posisiPointerSebelumnya = null;
+        let posisiAwalPointerGerak = null;
         let tombol = {};
-        let spawnTimer = null;
 
-        document.getElementById("papanSkor").innerText = `🏆 REKOR TERBAIKMU: ${skorTertinggi} Poin`;
+        let pemainX = canvas.width / 2 - ukuranPemain / 2;
 
-        btnMulai.addEventListener("click", () => {
+        try {
+            skorTertinggi = Number(localStorage.getItem("highScoreAdu")) || 0;
+        } catch (error) {
+            skorTertinggi = 0;
+        }
+
+        function updateHUD() {
+            scoreDisplay.innerText = `SKOR: ${skor} | NYAWA: ${nyawa}`;
+            bestScoreDisplay.innerText = `🏆 REKOR TERBAIKMU: ${skorTertinggi} Poin`;
+        }
+
+        function resetGame() {
+            skor = 0;
+            nyawa = 3;
+            dangerModeAktif = false;
+            dangerTarget = 20;
+            daftarPeluru = [];
+            daftarMusuh = [];
+            efekLedakan = [];
+            efekRadiusLedakan = [];
+            invulnerableTime = 0;
+            waktuTembakanTerakhir = 0;
+            spawnCountdown = 400;
+            pemainX = canvas.width / 2 - ukuranPemain / 2;
+            canvas.style.borderColor = "#00f2fe";
+            updateHUD();
+        }
+
+        function tombolMulaiGame() {
             if (!gambarPemainSiap || !gambarMusuhSiap) {
                 alert("Gambar pemain atau musuh belum siap. Periksa file pemain.png dan musuh.png.");
                 return;
             }
 
             startScreen.style.display = "none";
+            gameOverPanel.classList.remove("show");
+            resetGame();
             gameAktif = true;
-            spawnMusuh();
-            requestAnimationFrame(update);
-        });
-
-        for(let i=0; i<30; i++) {
-            bintangLatar.push({ x: Math.random()*canvas.width, y: Math.random()*canvas.height, speed: 1 + Math.random()*2 });
+            lastTimestamp = performance.now();
+            requestAnimationFrame(loopGame);
         }
 
-        window.addEventListener("keydown", (e) => tombol[e.key] = true);
-        window.addEventListener("keyup", (e) => tombol[e.key] = false);
-        window.addEventListener("keydown", (e) => { if (e.key === " " || e.key === "ArrowUp") tembak(); });
-
-        function pasangTombol(id, aksi) {
-            const btn = document.getElementById(id);
-            btn.addEventListener("pointerdown", (e) => { e.preventDefault(); aksi(); });
-        }
-        pasangTombol("btn-kiri", () => { if(gameAktif && pemainX > 0) pemainX -= 25; });
-        pasangTombol("btn-kanan", () => {
-            if(gameAktif && pemainX < canvas.width - ukuranPemain) pemainX += 25;
+        btnMulai.addEventListener("click", tombolMulaiGame);
+        btnUlang.addEventListener("click", tombolMulaiGame);
+        startScreen.addEventListener("click", (event) => {
+            if (event.target === startScreen && !gameAktif) {
+                tombolMulaiGame();
+            }
         });
-        pasangTombol("btn-tembak", () => tembak());
+
+        function buatBintang() {
+            return {
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                speed: 0.8 + Math.random() * 2.2,
+                ukuran: Math.random() > 0.7 ? 3 : 2
+            };
+        }
+
+        for (let i = 0; i < 35; i++) {
+            bintangLatar.push(buatBintang());
+        }
+
+        function gerakkanPemainDenganKontrol(event) {
+            if (posisiPointerSebelumnya === null) return;
+            const perpindahanLayar = event.clientX - posisiPointerSebelumnya;
+            posisiPointerSebelumnya = event.clientX;
+            const batas = canvas.getBoundingClientRect();
+            pemainX = Math.max(
+                0,
+                Math.min(
+                    canvas.width - ukuranPemain,
+                    pemainX + perpindahanLayar * (canvas.width / batas.width)
+                )
+            );
+        }
+
+        kontrolGerak.addEventListener("pointerdown", (event) => {
+            if (!gameAktif) return;
+            event.preventDefault();
+            pointerGerakAktif = event.pointerId;
+            posisiPointerSebelumnya = event.clientX;
+            posisiAwalPointerGerak = event.clientX;
+            areaKontrolGerak.classList.add("is-dragging");
+            kontrolGerak.setPointerCapture(event.pointerId);
+        });
+
+        kontrolGerak.addEventListener("pointermove", (event) => {
+            if (!gameAktif || event.pointerId !== pointerGerakAktif) return;
+            gerakkanPemainDenganKontrol(event);
+            const offsetVisual = Math.max(-8, Math.min(8, event.clientX - posisiAwalPointerGerak));
+            kontrolGerak.style.setProperty("--drag-offset", `${offsetVisual}px`);
+        });
+
+        function akhiriGerakanKontrol(event) {
+            if (event.pointerId !== pointerGerakAktif) return;
+            pointerGerakAktif = null;
+            posisiPointerSebelumnya = null;
+            posisiAwalPointerGerak = null;
+            kontrolGerak.style.setProperty("--drag-offset", "0px");
+            areaKontrolGerak.classList.remove("is-dragging");
+        }
+
+        kontrolGerak.addEventListener("pointerup", akhiriGerakanKontrol);
+        kontrolGerak.addEventListener("pointercancel", akhiriGerakanKontrol);
+        kontrolGerak.addEventListener("lostpointercapture", akhiriGerakanKontrol);
+        kontrolGerak.addEventListener("contextmenu", (event) => event.preventDefault());
+
+        document.getElementById("btn-tembak").addEventListener("pointerdown", (event) => {
+            event.preventDefault();
+            tembak();
+        });
+
+        window.addEventListener("keydown", (event) => {
+            tombol[event.key] = true;
+            if (event.key === " " || event.key === "ArrowUp") {
+                tembak();
+            }
+        });
+
+        window.addEventListener("keyup", (event) => {
+            tombol[event.key] = false;
+        });
 
         function tembak() {
-            if (!gameAktif) return;
+            const sekarang = performance.now();
+            if (
+                !gameAktif ||
+                daftarPeluru.length >= MAKS_PELURU_AKTIF ||
+                sekarang - waktuTembakanTerakhir < JEDA_TEMBAKAN_MS
+            ) {
+                return;
+            }
 
-            daftarPeluru.push({
+            const peluruBaru = {
                 x: pemainX + (ukuranPemain - 4) / 2,
                 y: pemainY,
                 lebar: 4,
                 tinggi: 12,
                 kecepatan: 9
+            };
+            daftarPeluru.push(peluruBaru);
+            waktuTembakanTerakhir = sekarang;
+        }
+
+        function buatMusuhNormal() {
+            if (daftarMusuh.length >= MAKS_MUSUH_AKTIF) return;
+            const levelRondeIni = Math.floor(skor / 15) + 1;
+            const ukuran = 46;
+            const x = Math.random() * (canvas.width - ukuran);
+            const y = -ukuran;
+            daftarMusuh.push({
+                x,
+                y,
+                ukuran,
+                lebar: ukuran,
+                tinggi: ukuran,
+                hp: 1,
+                kecepatan: Math.min(KECEPATAN_MUSUH_MAKS, 1 + skor * 0.025 + levelRondeIni * 0.12),
+                isDanger: false,
+                isBoom: false
+            });
+        }
+
+        function buatMusuhBoom() {
+            if (daftarMusuh.length >= MAKS_MUSUH_AKTIF) return;
+            const levelRondeIni = Math.floor(skor / 15) + 1;
+            const ukuran = 48;
+            const x = Math.random() * (canvas.width - ukuran);
+            daftarMusuh.push({
+                x,
+                y: -ukuran,
+                ukuran,
+                lebar: ukuran,
+                tinggi: ukuran,
+                hp: 1,
+                kecepatan: Math.min(KECEPATAN_BOOM_MAKS, 1.1 + skor * 0.03 + levelRondeIni * 0.14),
+                isDanger: false,
+                isBoom: true
+            });
+        }
+
+        function buatMusuhDanger() {
+            if (daftarMusuh.length >= MAKS_MUSUH_AKTIF) return;
+            const levelRondeIni = Math.floor(skor / 15) + 1;
+            const ukuran = 60;
+            const x = Math.random() * (canvas.width - ukuran);
+            daftarMusuh.push({
+                x,
+                y: -ukuran,
+                ukuran,
+                lebar: ukuran,
+                tinggi: ukuran,
+                hp: 3,
+                kecepatan: Math.min(KECEPATAN_DANGER_MAKS, 1.2 + skor * 0.04 + levelRondeIni * 0.15),
+                isDanger: true,
+                isBoom: false
             });
         }
 
         function spawnMusuh() {
             if (!gameAktif) return;
-            const jumlahMusuhDanger = daftarMusuh.filter(musuh => musuh.isDanger).length;
+
+            const musuhBahayaAktif = daftarMusuh.some(musuh => musuh.isDanger);
             if (dangerModeAktif) {
-                if (jumlahMusuhDanger < 2) buatMusuhDanger();
-            } else {
-                const ukuran = 46;
-                const jumlahMusuh = Math.floor(Math.random() * 4) + 1;
-
-                for (let i = 0; i < jumlahMusuh; i++) {
-                    const x = Math.random() * (canvas.width - ukuran);
-                    const y = -ukuran - i * (ukuran + 20);
-                    daftarMusuh.push({
-                        x, y, ukuran,
-                        kecepatan: 0.8 + (skor * 0.08), isDanger: false, hp: 1
-                    });
+                if (!musuhBahayaAktif && daftarMusuh.length < MAKS_MUSUH_AKTIF) {
+                    buatMusuhDanger();
                 }
+                if (
+                    daftarMusuh.length < MAKS_MUSUH_AKTIF &&
+                    Math.random() < 0.35
+                ) {
+                    buatMusuhNormal();
+                }
+                return;
             }
-            spawnTimer = setTimeout(spawnMusuh, 4000 - (skor * 10 > 500 ? 500 : skor * 10));
-        }
 
-        function buatMusuhDanger() {
-            const ukuran = 60;
-            const xAcak = Math.random() * (canvas.width - ukuran);
-            daftarMusuh.push({
-                x: xAcak, y: -ukuran, ukuran,
-                kecepatan: 1 + (skor * 0.04), isDanger: true, hp: 3
-            });
+            const levelRondeIni = Math.floor(skor / 15) + 1;
+            const jumlahMusuh = Math.max(1, Math.min(4, 1 + Math.floor(levelRondeIni / 2)));
+            const jumlahYangDimunculkan = Math.min(
+                jumlahMusuh,
+                MAKS_MUSUH_AKTIF - daftarMusuh.length
+            );
+            for (let i = 0; i < jumlahYangDimunculkan; i++) {
+                buatMusuhNormal();
+            }
+
+            const sudahAdaBoom = daftarMusuh.some(musuh => musuh.isBoom);
+            const peluangBoom = Math.min(0.4, 0.15 + levelRondeIni * 0.01);
+            if (
+                !sudahAdaBoom &&
+                daftarMusuh.length < MAKS_MUSUH_AKTIF &&
+                Math.random() < peluangBoom
+            ) {
+                buatMusuhBoom();
+            }
         }
 
         function tambahSkor(poin = 1) {
             skor += poin;
-            document.getElementById("skor-display").innerText = `SKOR: ${skor}`;
+            if (skor > skorTertinggi) {
+                skorTertinggi = skor;
+                try {
+                    localStorage.setItem("highScoreAdu", String(skorTertinggi));
+                } catch (error) {
+                    console.warn("Tidak bisa menyimpan high score:", error);
+                }
+            }
 
-            if (skor >= targetDangerBerikutnya && !dangerModeAktif) {
+            if (skor >= dangerTarget && !dangerModeAktif) {
                 dangerModeAktif = true;
                 canvas.style.borderColor = "red";
                 buatMusuhDanger();
             }
+
+            updateHUD();
         }
 
-        function buatLedakan(x, y) {
-            for(let i=0; i<15; i++) {
+        function buatLedakan(x, y, jumlahDiminta = 18) {
+            const jumlahPartikel = Math.min(jumlahDiminta, MAKS_PARTIKEL_AKTIF - efekLedakan.length);
+            for (let i = 0; i < jumlahPartikel; i++) {
                 efekLedakan.push({
-                    x: x, y: y,
+                    x,
+                    y,
                     vx: (Math.random() - 0.5) * 6,
                     vy: (Math.random() - 0.5) * 6,
                     alpha: 1,
@@ -319,59 +603,193 @@ window.addEventListener("keydown", mulaiMusik);
             }
         }
 
-        function buatEfekLedakan(x, y) {
-            daftarLedakan.push({ x, y, lebar: 70, tinggi: 70, timer: 30 });
-        }
-
-        function pemicuEfekDangerSelesai() {
-            dangerModeAktif = false;
-            targetDangerBerikutnya += 20;
-            daftarMusuh = [];
-            tambahSkor(5);
-            canvas.style.borderColor = dangerModeAktif ? "red" : "#00ff66";
-            setTimeout(() => {
-                if (!dangerModeAktif) canvas.style.borderColor = "#00f2fe";
-            }, 1500);
-        }
-
-        function update() {
-            if (!gameAktif) return;
-
-            if ((tombol["ArrowLeft"] || tombol["a"]) && pemainX > 0) pemainX -= kecepatanPemain;
-            if ((tombol["ArrowRight"] || tombol["d"]) && pemainX < canvas.width - ukuranPemain) pemainX += kecepatanPemain;
-
-            bintangLatar.forEach(b => { b.y += b.speed; if(b.y > canvas.height) b.y = 0; });
-            daftarPeluru.forEach((p, idx) => { p.y -= p.kecepatan; if(p.y < 0) daftarPeluru.splice(idx, 1); });
-
-            efekLedakan.forEach((partikel, idx) => {
-                partikel.x += partikel.vx; partikel.y += partikel.vy; partikel.alpha -= 0.04;
-                if(partikel.alpha <= 0) efekLedakan.splice(idx, 1);
+        function ledakkanBoom(x, y) {
+            efekRadiusLedakan.push({
+                x,
+                y,
+                radius: 0,
+                sisaWaktu: 18
             });
 
-            musuhLoop: for (let mIdx = daftarMusuh.length - 1; mIdx >= 0; mIdx--) {
-                const m = daftarMusuh[mIdx];
-                m.y += m.kecepatan;
-                if (m.y > canvas.height) {
-                    gameOver();
-                    return;
+            let jumlahMusuhBiasaHancur = 0;
+            let adaMusuhDangerYangHancur = false;
+            for (let i = daftarMusuh.length - 1; i >= 0; i--) {
+                const musuh = daftarMusuh[i];
+                if (musuh.isBoom) continue;
+                const jarakX = musuh.x + musuh.ukuran / 2 - x;
+                const jarakY = musuh.y + musuh.ukuran / 2 - y;
+                if (Math.hypot(jarakX, jarakY) > radiusLedakanBoom) continue;
+
+                if (musuh.isDanger) {
+                    adaMusuhDangerYangHancur = true;
+                } else {
+                    jumlahMusuhBiasaHancur++;
+                }
+                daftarMusuh.splice(i, 1);
+                buatLedakan(musuh.x + musuh.ukuran / 2, musuh.y + musuh.ukuran / 2, 6);
+            }
+
+            if (adaMusuhDangerYangHancur && !daftarMusuh.some(musuh => musuh.isDanger)) {
+                dangerModeAktif = false;
+                dangerTarget += 20;
+                canvas.style.borderColor = "#00ff66";
+                setTimeout(() => {
+                    canvas.style.borderColor = "#00f2fe";
+                }, 1000);
+                jumlahMusuhBiasaHancur += 5;
+            }
+
+            if (jumlahMusuhBiasaHancur > 0) {
+                tambahSkor(jumlahMusuhBiasaHancur);
+            }
+        }
+
+        function kenaMusuh() {
+            if (invulnerableTime > 0 || !gameAktif) return;
+
+            nyawa -= 1;
+            invulnerableTime = 1200;
+            buatLedakan(pemainX + ukuranPemain / 2, pemainY + ukuranPemain / 2);
+            updateHUD();
+
+            if (nyawa <= 0) {
+                gameOver();
+            }
+        }
+
+        function gameOver() {
+            gameAktif = false;
+            if (musikSudahDiizinkan) {
+                pilihMusikBerbeda();
+            }
+
+            if (skor > skorTertinggi) {
+                skorTertinggi = skor;
+                try {
+                    localStorage.setItem("highScoreAdu", String(skorTertinggi));
+                } catch (error) {
+                    console.warn("Tidak bisa menyimpan high score:", error);
+                }
+            }
+
+            gameOverScore.innerText = `Skor: ${skor}`;
+            gameOverPanel.classList.add("show");
+            startScreen.style.display = "flex";
+            resetGame();
+            updateHUD();
+            canvas.style.borderColor = "#00f2fe";
+        }
+
+        function mulaiMenuLagi() {
+            startScreen.style.display = "flex";
+            resetGame();
+            updateHUD();
+            canvas.style.borderColor = "#00f2fe";
+        }
+
+        function updateGame(dt) {
+            if (!gameAktif) return;
+
+            if ((tombol["ArrowLeft"] || tombol["a"]) && pemainX > 0) {
+                pemainX -= kecepatanPemain * dt;
+            }
+            if ((tombol["ArrowRight"] || tombol["d"]) && pemainX < canvas.width - ukuranPemain) {
+                pemainX += kecepatanPemain * dt;
+            }
+
+            if (invulnerableTime > 0) {
+                invulnerableTime -= dt * 16.666;
+            }
+
+            bintangLatar.forEach((bintang) => {
+                bintang.y += bintang.speed * dt;
+                if (bintang.y > canvas.height) {
+                    bintang.y = -4;
+                    bintang.x = Math.random() * canvas.width;
+                }
+            });
+
+            spawnCountdown -= dt * 16.666;
+            if (spawnCountdown <= 0) {
+                spawnMusuh();
+                const levelRondeIni = Math.floor(skor / 15) + 1;
+                const intervalBase = Math.max(650, 2200 - levelRondeIni * 120 - skor * 5);
+                spawnCountdown = intervalBase;
+            }
+
+            for (let i = daftarPeluru.length - 1; i >= 0; i--) {
+                const peluru = daftarPeluru[i];
+                peluru.y -= peluru.kecepatan * dt;
+                if (peluru.y < -20) {
+                    daftarPeluru.splice(i, 1);
+                }
+            }
+
+            for (let i = efekLedakan.length - 1; i >= 0; i--) {
+                const partikel = efekLedakan[i];
+                partikel.x += partikel.vx * dt;
+                partikel.y += partikel.vy * dt;
+                partikel.alpha -= 0.04 * dt;
+                if (partikel.alpha <= 0) {
+                    efekLedakan.splice(i, 1);
+                }
+            }
+
+            for (let i = efekRadiusLedakan.length - 1; i >= 0; i--) {
+                const efek = efekRadiusLedakan[i];
+                efek.radius += (radiusLedakanBoom - efek.radius) * 0.3 * dt;
+                efek.sisaWaktu -= dt;
+                if (efek.sisaWaktu <= 0) {
+                    efekRadiusLedakan.splice(i, 1);
+                }
+            }
+
+            for (let i = daftarMusuh.length - 1; i >= 0; i--) {
+                const musuh = daftarMusuh[i];
+                musuh.y += musuh.kecepatan * dt;
+
+                if (musuh.y + musuh.ukuran > canvas.height) {
+                    if (musuh.isBoom) {
+                        daftarMusuh.splice(i, 1);
+                        continue;
+                    }
+
+                    daftarMusuh.splice(i, 1);
+                    kenaMusuh();
+                    continue;
                 }
 
-                for (let pIdx = daftarPeluru.length - 1; pIdx >= 0; pIdx--) {
-                    const p = daftarPeluru[pIdx];
-                    if (p.x < m.x + m.ukuran && p.x + p.lebar > m.x && 
-                        p.y < m.y + m.ukuran && p.y + p.tinggi > m.y) {
-                        daftarPeluru.splice(pIdx, 1);
-                        m.hp--;
+                for (let p = daftarPeluru.length - 1; p >= 0; p--) {
+                    const peluru = daftarPeluru[p];
+                    if (
+                        peluru.x < musuh.x + musuh.ukuran &&
+                        peluru.x + peluru.lebar > musuh.x &&
+                        peluru.y < musuh.y + musuh.ukuran &&
+                        peluru.y + peluru.tinggi > musuh.y
+                    ) {
+                        daftarPeluru.splice(p, 1);
+                        musuh.hp -= 1;
 
-                        if (m.hp <= 0) {
-                            buatLedakan(m.x + m.ukuran / 2, m.y + m.ukuran / 2);
-                            daftarMusuh.splice(mIdx, 1);
-                            if (m.isDanger) {
-                                buatEfekLedakan(m.x + m.ukuran / 2, m.y + m.ukuran / 2);
-                                const masihAdaMusuhDanger = daftarMusuh.some(musuh => musuh.isDanger);
+                        if (musuh.hp <= 0) {
+                            if (musuh.isBoom) {
+                                daftarMusuh.splice(i, 1);
+                                ledakkanBoom(musuh.x + musuh.ukuran / 2, musuh.y + musuh.ukuran / 2);
+                                break;
+                            }
+
+                            buatLedakan(musuh.x + musuh.ukuran / 2, musuh.y + musuh.ukuran / 2);
+                            daftarMusuh.splice(i, 1);
+
+                            if (musuh.isDanger) {
+                                const masihAdaMusuhDanger = daftarMusuh.some(item => item.isDanger);
                                 if (!masihAdaMusuhDanger) {
-                                    pemicuEfekDangerSelesai();
-                                    break musuhLoop;
+                                    dangerModeAktif = false;
+                                    dangerTarget += 20;
+                                    canvas.style.borderColor = "#00ff66";
+                                    tambahSkor(5);
+                                    setTimeout(() => {
+                                        canvas.style.borderColor = "#00f2fe";
+                                    }, 1000);
                                 }
                             } else {
                                 tambahSkor();
@@ -382,74 +800,79 @@ window.addEventListener("keydown", mulaiMusik);
                 }
             }
 
+            if (nyawa <= 0) {
+                gameOver();
+            }
+        }
+
+        function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            ctx.fillStyle = "rgba(255,255,255,0.6)";
-            bintangLatar.forEach(b => ctx.fillRect(b.x, b.y, 2, 2));
+            ctx.fillStyle = "rgba(255,255,255,0.7)";
+            bintangLatar.forEach((bintang) => {
+                ctx.fillRect(bintang.x, bintang.y, bintang.ukuran, bintang.ukuran);
+            });
 
             ctx.drawImage(imgPemain, pemainX, pemainY, ukuranPemain, ukuranPemain);
 
             ctx.fillStyle = "#00f2fe";
-            daftarPeluru.forEach(p => ctx.fillRect(p.x, p.y, p.lebar, p.tinggi));
-
-            daftarMusuh.forEach(m => {
-                const gambarMusuh = m.isDanger && imgMusuhDanger.complete && imgMusuhDanger.naturalWidth > 0
-                    ? imgMusuhDanger
-                    : imgMusuh;
-                ctx.drawImage(gambarMusuh, m.x, m.y, m.ukuran, m.ukuran);
+            daftarPeluru.forEach(peluru => {
+                ctx.fillRect(peluru.x, peluru.y, peluru.lebar, peluru.tinggi);
             });
 
-            for (let i = daftarLedakan.length - 1; i >= 0; i--) {
-                const ledakan = daftarLedakan[i];
-                if (gambarLedakan.complete && gambarLedakan.naturalWidth > 0) {
-                    ctx.drawImage(
-                        gambarLedakan,
-                        ledakan.x - ledakan.lebar / 2,
-                        ledakan.y - ledakan.tinggi / 2,
-                        ledakan.lebar,
-                        ledakan.tinggi
-                    );
+            daftarMusuh.forEach((musuh) => {
+                let gambar = imgMusuh;
+                if (musuh.isBoom && imgBoom.complete && imgBoom.naturalWidth > 0) {
+                    gambar = imgBoom;
+                } else if (musuh.isDanger && imgMusuhDanger.complete && imgMusuhDanger.naturalWidth > 0) {
+                    gambar = imgMusuhDanger;
                 }
-                ledakan.timer--;
-                if (ledakan.timer <= 0) daftarLedakan.splice(i, 1);
-            }
-
-            efekLedakan.forEach(p => {
-                ctx.fillStyle = p.warna; ctx.globalAlpha = p.alpha;
-                ctx.fillRect(p.x, p.y, 3, 3);
+                ctx.drawImage(gambar, musuh.x, musuh.y, musuh.ukuran, musuh.ukuran);
             });
-            ctx.globalAlpha = 1.0;
 
-            ctx.fillStyle = "#fff"; ctx.font = "bold 16px sans-serif";
-            ctx.fillText(`SKOR: ${skor}`, 15, 30);
+            efekRadiusLedakan.forEach((efek) => {
+                ctx.beginPath();
+                ctx.arc(efek.x, efek.y, efek.radius, 0, Math.PI * 2);
+                ctx.fillStyle = "rgba(255, 100, 30, 0.12)";
+                ctx.fill();
+                ctx.lineWidth = 4;
+                ctx.strokeStyle = `rgba(255, 190, 70, ${Math.max(0, efek.sisaWaktu / 18)})`;
+                ctx.stroke();
+            });
 
-            requestAnimationFrame(update);
-        }
+            efekLedakan.forEach((partikel) => {
+                ctx.fillStyle = partikel.warna;
+                ctx.globalAlpha = partikel.alpha;
+                ctx.fillRect(partikel.x, partikel.y, 3, 3);
+            });
+            ctx.globalAlpha = 1;
 
-        function gameOver() {
-            gameAktif = false;
-            clearTimeout(spawnTimer);
-            if (musikSudahDiizinkan) pilihMusikBerbeda();
-            alert(`Yahh Kalah pang! Skor akhir Mu Nah: ${skor}`);
-            
-            if (skor > skorTertinggi) {
-                skorTertinggi = skor;
-                localStorage.setItem("highScoreAdu", String(skorTertinggi));
-                alert("🎉  Rekor baru Anjay!");
+            if (invulnerableTime > 0) {
+                ctx.strokeStyle = "rgba(255,255,255,0.8)";
+                ctx.lineWidth = 2;
+                ctx.strokeRect(pemainX - 2, pemainY - 2, ukuranPemain + 4, ukuranPemain + 4);
             }
 
-            skor = 0;
-            daftarMusuh = [];
-            daftarPeluru = [];
-            daftarLedakan = [];
-            dangerModeAktif = false;
-            targetDangerBerikutnya = 20;
-            pemainX = canvas.width / 2 - ukuranPemain / 2;
-            canvas.style.borderColor = "#00f2fe";
-            document.getElementById("skor-display").innerText = "SKOR: 0";
-            document.getElementById("papanSkor").innerText = `🏆 REKOR TERBAIKMU ANJAY: ${skorTertinggi} Poin`;
-            startScreen.style.display = "flex";
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "bold 16px sans-serif";
+            ctx.fillText(`SKOR: ${skor}`, 14, 28);
         }
+
+        function loopGame(timestamp) {
+            if (!gameAktif) return;
+
+            const dt = Math.min(1.8, (timestamp - lastTimestamp) / 16.6667 || 1);
+            lastTimestamp = timestamp;
+
+            updateGame(dt);
+            draw();
+
+            if (gameAktif) {
+                requestAnimationFrame(loopGame);
+            }
+        }
+
+        updateHUD();
     </script>
 </body>
 </html>
